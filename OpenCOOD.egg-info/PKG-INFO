@@ -1,0 +1,75 @@
+Metadata-Version: 2.1
+Name: OpenCOOD
+Version: 0.1.0
+Summary: An opensource pytorch framework for autonomous driving cooperative detection
+Home-page: UNKNOWN
+Author: Runsheng Xu, Hao Xiang, Yifan Lu
+Author-email: yifan_lu@sjtu.edu.cn
+License: MIT
+Platform: UNKNOWN
+License-File: LICENSE
+
+# DI-V2X
+The official implementation of AAAI2024 paper DI-V2X: Learning Domain-Invariant Representation for Vehicle-Infrastructure Collaborative 3D Object Detection.
+[Papaer](https://ojs.aaai.org/index.php/AAAI/article/view/28105/28215).
+
+
+# Install
+Please follow the feishu docs CoAlign Installation Guide [Chinese Ver.](https://udtkdfu8mk.feishu.cn/docx/LlMpdu3pNoCS94xxhjMcOWIynie) or [English Ver.](https://udtkdfu8mk.feishu.cn/docx/SZNVd0S7UoD6mVxUM6Wc8If6ncc) to learn how to install and run this repo.
+
+Or you can refer to [OpenCOOD data introduction](https://opencood.readthedocs.io/en/latest/md_files/data_intro.html) and [OpenCOOD installation guide](https://opencood.readthedocs.io/en/latest/md_files/installation.html) to prepare data and install CoAlign. The installation is totally the same as OpenCOOD, except some dependent packages required by CoAlign.
+
+
+
+# Prepare Dataset
+## Dair-V2X
+Prepare the dair-v2x dataset following the official guide and then prepare the [complemeted annotations](https://siheng-chen.github.io/dataset/dair-v2x-c-complemented/).
+
+Prepare the domain-mixing instance bank(DMA) following:
+
+```
+cd ~/DI-V2X
+python opencood/data_utils/datasets/basedataset/dairv2x_basedataset.py
+```
+
+- The folder structure shall be like this:
+    - cooperative-vehicle-infrastructure
+        - cooperative
+        - gt_database_fusion
+        - infrastructure-side
+        - vehilce-side
+        - dairv2x_dbinfos_fusion.pkl
+        - train.json
+        - val.json
+
+## Train
+### Step1: Train the teacher with mutiple gpus
+```
+bash opencood/tools/scripts/dist_train.sh 4 opencood/hypes_yaml/dairv2x/lidar_only/pointpillar_early_gtsample_multiscale.yaml early
+```
+
+then the teacher model will be saved in {teacher_model_path}.
+
+### Step2: Train the student
+First set parameter of the kd_flag->teacher_path to {teacher_model_path} in the pointpillar_pdd_distillation.yaml.
+Then train the model:
+
+```
+bash opencood/tools/scripts/train_w_kd.sh opencood/hypes_yaml/dairv2x/lidar_only/pointpillar_pdd_distillation.yaml
+```
+then the student model will be save in {student_model_path}
+
+## Test
+```
+python opencood/tools/inference.py --model_dir {student_model_path} --fusion_method intermediate
+```
+
+## Checkpoints
+The DI-V2X teacher and student models and evaluation files can be found in opencood/logs.
+
+## Acknowledgements
+
+The authors are grateful to School of Computer Science, Beijing Institute of Technology, Inceptio and University of Macau.
+
+The code is based on [CoAlgin](https://github.com/yifanlu0227/CoAlign).
+

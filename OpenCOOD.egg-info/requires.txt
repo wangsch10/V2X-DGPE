@@ -1,0 +1,4 @@
+tensorboardX
+shapely
+einops
+imageio

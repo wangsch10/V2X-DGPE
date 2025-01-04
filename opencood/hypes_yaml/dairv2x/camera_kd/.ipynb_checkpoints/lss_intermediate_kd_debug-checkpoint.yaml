@@ -1,0 +1,229 @@
+name: dairv2x_lss_intermediate_kd_unidistill
+data_dir: "dataset/cooperative-vehicle-infrastructure"
+root_dir: "dataset/cooperative-vehicle-infrastructure/train.json"
+validate_dir: "dataset/cooperative-vehicle-infrastructure/val.json"
+test_dir: "dataset/cooperative-vehicle-infrastructure/val.json"
+
+class_names: ['Car']
+
+yaml_parser: "load_lss_image_kd_params"
+train_params:
+  batch_size: &batch_size 4
+  epoches: 60
+  eval_freq: 5
+  save_freq: 5
+  max_cav: 5
+
+input_source: ['camera', 'lidar'] #['camera']
+label_type: 'camera'
+
+comm_range: 100
+only_vis_ego: false
+
+# add_data_extension: ['bev_visibility.png']
+
+
+fusion:
+  core_method: 'intermediate'
+  dataset: 'dairv2x'
+  args: 
+    proj_first: false # useless
+    grid_conf: &grid_conf
+      xbound: [-102.4, 102.4, 0.4]   # Limit the range of the x direction and divide the grids
+      ybound: [-51.2, 51.2, 0.4]   # Limit the range of the y direction and divide the grids
+      zbound: [-10, 10, 20.0]   # Limit the range of the z direction and divide the grids
+      ddiscr: [2, 100, 98]
+      mode: 'LID' # or 'UD'
+    data_aug_conf: &data_aug_conf
+      resize_lim: [0.27, 0.28]
+      final_dim: [288, 512]
+      rot_lim: [0, 0]
+      H: 1080
+      W: 1920
+      rand_flip: False
+      bot_pct_lim: [0.0, 0.05]
+      cams: ['camera0', 'camera1', 'camera2', 'camera3'] # placeholder. no use
+      Ncams: 4 # placeholder. no use
+
+# preprocess-related
+preprocess:
+  # options: BasePreprocessor, VoxelPreprocessor, BevPreprocessor
+  core_method: 'SpVoxelPreprocessor'
+  args:
+    voxel_size: &voxel_size [0.4, 0.4, 5] # useful
+    max_points_per_voxel: 32  # useless
+    max_voxel_train: 32000  # useless
+    max_voxel_test: 70000  # useless
+  # detection range for each individual cav.
+  cav_lidar_range: &cav_lidar [-102.4, -51.2, -3.5, 102.4, 51.2, 1.5]
+
+data_augment: # useless
+  - NAME: random_world_flip
+    ALONG_AXIS_LIST: [ 'x' ]
+
+  - NAME: random_world_rotation
+    WORLD_ROT_ANGLE: [ -0.78539816, 0.78539816 ]
+
+  - NAME: random_world_scaling
+    WORLD_SCALE_RANGE: [ 0.95, 1.05 ]
+
+# anchor box related
+postprocess:
+  core_method: 'VoxelPostprocessor' # That's ok
+  gt_range: *cav_lidar
+  anchor_args:
+    cav_lidar_range: *cav_lidar
+    l: 4.5
+    w: 2
+    h: 1.56
+    feature_stride: 2
+    r: &anchor_yaw [0, 90]
+    num: &anchor_num 2
+  target_args:
+    pos_threshold: 0.6
+    neg_threshold: 0.45
+    score_threshold: 0.20
+  order: 'hwl' # hwl or lwh
+  max_num: 100 # maximum number of objects in a single frame. use this number to make sure different frames has the same dimension in the same batch
+  nms_thresh: 0.15
+  dir_args: &dir_args
+    dir_offset: 0.7853
+    num_bins: 2
+    anchor_yaw: *anchor_yaw
+
+# model related
+model:
+  core_method: lift_splat_shoot_intermediate
+  args:
+    anchor_number: *anchor_num
+    grid_conf: *grid_conf
+    data_aug_conf: *data_aug_conf
+    dir_args: *dir_args
+    img_downsample: 8
+    img_features: &img_feature 256 #128
+    use_depth_gt: false
+    depth_supervision: false
+    supervise_single: false #true
+    bevout_feature: 256 #128
+    camera_encoder: EfficientNet
+
+    # shrink_header:
+    #   kernal_size: [ 3 ]
+    #   stride: [ 1 ]
+    #   padding: [ 1 ]
+    #   dim: [ 256 ]
+    #   input_dim: 384 # 128 * 3
+
+    fusion_args:
+      core_method: max #att # support v2vnet, fcooper, v2xvit, self-att. Referring to LiDAR yamls to changethe args.
+      args:
+        voxel_size: *voxel_size
+        in_channels: *img_feature
+
+    kd_flag: true
+
+
+# model related
+kd_flag:
+  core_method: point_pillar_disconet_teacher
+  teacher_path: 'opencood/logs/dairv2x_point_pillar_lidar_early_gtsample_multiscale_e90_bs16_2023_12_18_01_48_51/net_epoch90.pth'
+  args:
+    voxel_size: *voxel_size
+    lidar_range: *cav_lidar
+    anchor_number: *anchor_num
+    dir_args: *dir_args
+    #compression: 32 #4,16,32,128,256 compression rate
+    
+    pillar_vfe:
+      use_norm: true
+      with_distance: false
+      use_absolute_xyz: true
+      num_filters: [64]
+    point_pillar_scatter:
+      num_features: 64
+
+    base_bev_backbone:
+      layer_nums: [3, 5, 8]
+      layer_strides: [2, 2, 2]
+      num_filters: [64, 128, 256]
+      upsample_strides: [1, 2, 4]
+      num_upsample_filter: [128, 128, 128]
+
+    shrink_header:
+      kernal_size: [ 3 ]
+      stride: [ 1 ]
+      padding: [ 1 ]
+      dim: [ 256 ]
+      input_dim: 384 # 128 * 3
+    
+    # fusion_args:
+    #   multi_scale: true
+
+    kd:
+      teacher: 1
+
+# loss:
+#   core_method: point_pillar_lss_kd_loss
+#   args:
+#     pos_cls_weight: 2.0
+#     cls:
+#       type: 'SigmoidFocalLoss'
+#       alpha: 0.25
+#       gamma: 2.0
+#       weight: 2.0
+#     reg:
+#       type: 'WeightedSmoothL1Loss'
+#       sigma: 3.0
+#       codewise: true
+#       weight: 2.0
+#     dir:
+#       type: 'WeightedSoftmaxClassificationLoss'
+#       weight: 0.2
+#       args: *dir_args
+#     kd:
+#       weight: 1000 #10000
+
+loss:
+  core_method: lss_unidistill_loss
+  args:
+    pos_cls_weight: 2.0
+    cls:
+      type: 'SigmoidFocalLoss'
+      alpha: 0.25
+      gamma: 2.0
+      weight: 2.0
+    reg:
+      type: 'WeightedSmoothL1Loss'
+      sigma: 3.0
+      codewise: true
+      weight: 2.0
+    dir:
+      type: 'WeightedSoftmaxClassificationLoss'
+      weight: 0.2
+      args: *dir_args
+    kd:
+      weight: 0 #5000
+      early_distill: 0
+      feature_kd: true
+      feat_weight: 1
+      relation_kd: true
+      rel_weight: 1
+      response_kd: true
+      res_weight: 1
+      intermediate_kd: false
+      intermediate_weight: 1
+      lidar_range: *cav_lidar
+      voxel_size: *voxel_size
+
+optimizer:
+  core_method: Adam
+  lr: 0.0015
+  args:
+    eps: 1e-10
+    weight_decay: 1e-4
+
+lr_scheduler:
+  core_method: multistep #step, multistep and Exponential support
+  gamma: 0.1
+  step_size: [30, 50] #[25, 40]
+

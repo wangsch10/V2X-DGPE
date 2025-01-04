@@ -1,0 +1,280 @@
+class_names:
+- Car
+comm_range: 100
+data_augment:
+- BOX_ORDER: lwh
+  DATABASE_WITH_FAKELIDAR: false
+  DB_INFO_PATH:
+  - dairv2x_dbinfos_fusion.pkl
+  LIMIT_WHOLE_SCENE: false
+  NAME: gt_sampling
+  NUM_POINT_FEATURES: 4
+  PREPARE:
+    filter_by_min_points:
+    - Car:5
+  REMOVE_EXTRA_WIDTH:
+  - 0.0
+  - 0.0
+  - 0.0
+  SAMPLE_GROUPS:
+  - Car:15
+  USE_ROAD_PLANE: false
+- ALONG_AXIS_LIST:
+  - x
+  NAME: random_world_flip
+- NAME: random_world_rotation
+  WORLD_ROT_ANGLE:
+  - -0.78539816
+  - 0.78539816
+- NAME: random_world_scaling
+  WORLD_SCALE_RANGE:
+  - 0.95
+  - 1.05
+data_dir: /data/dairv2x/cooperative-vehicle-infrastructure
+fusion:
+  args:
+    proj_first: false
+  core_method: intermediateaugment2
+  dataset: dairv2x
+input_source:
+- lidar
+kd_flag:
+  teacher_model: point_pillar_disconet_teacher
+  teacher_model_config: &id006
+    anchor_number: 2
+    base_bev_backbone:
+      compression: 0
+      layer_nums: &id001
+      - 3
+      - 4
+      - 5
+      layer_strides:
+      - 2
+      - 2
+      - 2
+      num_filters: &id002
+      - 64
+      - 128
+      - 256
+      num_upsample_filter:
+      - 128
+      - 128
+      - 128
+      resnet: true
+      upsample_strides:
+      - 1
+      - 2
+      - 4
+      voxel_size: &id003
+      - 0.4
+      - 0.4
+      - 5
+    dir_args: &id004
+      anchor_yaw: &id007
+      - 0
+      - 90
+      dir_offset: 0.7853
+      num_bins: 2
+    fusion_args:
+      agg_operator:
+        feature_dim: 256
+        mode: MAX
+      downsample_rate: 1
+      dropout_rate: 0
+      early_distill: true
+      fusion_net: v2xdgpe
+      in_channels: 256
+      layer_nums: *id001
+      multi_scale: false
+      n_head: 8
+      num_filters: *id002
+      only_attention: true
+      voxel_size: *id003
+    transformer:
+      encoder: &encoder
+        # number of fusion blocks per encoder layer
+        num_blocks: 1
+        # number of encoder layers
+        depth: 3
+        use_roi_mask: true
+        use_RTE: &use_RTE true
+        RTE_ratio: &RTE_ratio 2 # 2 means the dt has 100ms interval while 1 means 50 ms interval
+        # agent-wise attention
+        cav_att_config: &cav_att_config
+          dim: 256
+          use_hetero: true
+          use_RTE: *use_RTE
+          RTE_ratio: *RTE_ratio
+          heads: 8
+          dim_head: 32
+          dropout: 0.3
+        # spatial-wise attention
+        pwindow_att_config: &pwindow_att_config
+          dim: 256
+          heads: [16, 8, 4]
+          dim_head: [16, 32, 64]
+          dropout: 0.3
+          window_size: [5, 10, 25]
+          relative_pos_embedding: true
+          fusion_method: 'split_attn'
+        # feedforward condition
+        feed_forward: &feed_forward
+          mlp_dim: 256
+          dropout: 0.3
+        sttf: &sttf
+          voxel_size:  [0.4, 0.4, 4]
+          downsample_rate: 4
+    lidar_range: &id005
+    - -100.8
+    - -40
+    - -3.5
+    - 100.8
+    - 40
+    - 1.5
+    pillar_vfe:
+      num_filters:
+      - 64
+      use_absolute_xyz: true
+      use_norm: true
+      with_distance: false
+    point_pillar_scatter:
+      grid_size: !!python/object/apply:numpy.core.multiarray._reconstruct
+        args:
+        - !!python/name:numpy.ndarray ''
+        - !!python/tuple
+          - 0
+        - !!binary |
+          Yg==
+        state: !!python/tuple
+        - 1
+        - !!python/tuple
+          - 3
+        - !!python/object/apply:numpy.dtype
+          args:
+          - i8
+          - false
+          - true
+          state: !!python/tuple
+          - 3
+          - <
+          - null
+          - null
+          - null
+          - -1
+          - -1
+          - 0
+        - false
+        - !!binary |
+          +AEAAAAAAADIAAAAAAAAAAEAAAAAAAAA
+      num_features: 64
+    shrink_header:
+      dim:
+      - 256
+      input_dim: 384
+      kernal_size:
+      - 3
+      padding:
+      - 1
+      stride:
+      - 1
+    voxel_size: *id003
+  teacher_path: opencood/logs/v2x_dgpe_teacher/net_epoch50.pth
+label_type: lidar
+loss:
+  args:
+    cls:
+      alpha: 0.25
+      gamma: 2.0
+      type: SigmoidFocalLoss
+      weight: 2.0
+    dir:
+      args: *id004
+      type: WeightedSoftmaxClassificationLoss
+      weight: 0.2
+    kd:
+      early_distill: 0
+      feat_weight: 1
+      feature_kd: true
+      intermediate_kd: true
+      intermediate_weight: 1
+      lidar_range: *id005
+      rel_weight: 1
+      relation_kd: false
+      res_weight: 1
+      response_kd: true
+      voxel_size: *id003
+      weight: 0
+    pos_cls_weight: 2.0
+    reg:
+      codewise: true
+      sigma: 3.0
+      type: WeightedSmoothL1Loss
+      weight: 2.0
+  core_method: point_pillar_unidistill_loss
+lr_scheduler:
+  core_method: multistep
+  gamma: 0.1
+  step_size:
+  - 15
+  - 43  #30                 
+  - 58  #40 总45个epoch就够了
+model:
+  args: *id006
+  core_method: point_pillar_disconet_v2xdgpe
+#name: dairv2x_pointpillar_unidistillation_DGFF_transform_first
+noise_setting:
+  add_noise: false
+  args:
+    pos_mean: 0
+    pos_std: 0.2
+    rot_mean: 0
+    rot_std: 0.2
+optimizer:
+  args:
+    eps: 1.0e-10
+    weight_decay: 0.0001
+  core_method: Adam
+  lr: 0.001
+postprocess:
+  anchor_args:
+    D: 1
+    H: 200
+    W: 504
+    cav_lidar_range: *id005
+    feature_stride: 2
+    h: 1.56
+    l: 4.5
+    num: 2
+    r: *id007
+    vd: 5
+    vh: 0.4
+    vw: 0.4
+    w: 2
+  core_method: VoxelPostprocessor
+  dir_args: *id004
+  gt_range: *id005
+  max_num: 100
+  nms_thresh: 0.15
+  order: hwl
+  target_args:
+    neg_threshold: 0.45
+    pos_threshold: 0.6
+    score_threshold: 0.2
+preprocess:
+  args:
+    max_points_per_voxel: 32
+    max_voxel_test: 70000
+    max_voxel_train: 32000
+    voxel_size: *id003
+  cav_lidar_range: *id005
+  core_method: SpVoxelPreprocessor
+root_dir: /data/dairv2x/cooperative-vehicle-infrastructure/train.json
+test_dir: /data/dairv2x/cooperative-vehicle-infrastructure/val.json
+train_params:
+  batch_size: 4
+  epoches: 45
+  eval_freq: 5
+  max_cav: 2
+  save_freq: 5
+validate_dir: /data/dairv2x/cooperative-vehicle-infrastructure/val.json
+yaml_parser: load_point_pillar_params
