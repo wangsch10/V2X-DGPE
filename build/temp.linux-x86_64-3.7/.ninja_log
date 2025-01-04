@@ -1,7 +1,0 @@
-# ninja log v5
-1	2242	1713255784622821483	/home/wangsichao/myv2x/build/temp.linux-x86_64-3.7/opencood/pcdet_utils/iou3d_nms/src/iou3d_nms_kernel.o	2c28b2d817b21ccd
-0	13928	1713255796311103793	/home/wangsichao/myv2x/build/temp.linux-x86_64-3.7/opencood/pcdet_utils/iou3d_nms/src/iou3d_cpu.o	298b01461a122804
-1	14036	1713255796419106402	/home/wangsichao/myv2x/build/temp.linux-x86_64-3.7/opencood/pcdet_utils/iou3d_nms/src/iou3d_nms.o	b6606a786c415543
-1	19374	1713255801751235202	/home/wangsichao/myv2x/build/temp.linux-x86_64-3.7/opencood/pcdet_utils/iou3d_nms/src/iou3d_nms_api.o	952b25664316173f
-2	762	1713255803123268345	/home/wangsichao/myv2x/build/temp.linux-x86_64-3.7/opencood/pcdet_utils/roiaware_pool3d/src/roiaware_pool3d_kernel.o	1947120c0d02f3ae
-1	18894	1713255821247706202	/home/wangsichao/myv2x/build/temp.linux-x86_64-3.7/opencood/pcdet_utils/roiaware_pool3d/src/roiaware_pool3d.o	bbdf03a27a1e3941
