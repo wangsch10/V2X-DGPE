@@ -44,14 +44,18 @@ Alternatively, refer to the [OpenCOOD data introduction](https://opencood.readth
 
 ## Training  
 
-### Step 1: Train the Teacher Model  
+### Train the Teacher Model  
 ```bash
 bash opencood/tools/scripts/dist_train.sh 4 opencood/hypes_yaml/dairv2x/lidar_only/pointpillar_early_gtsample_multiscale.yaml early
 ```
 
-### Step 2: Train the Student Model
+### Train the Student Model
 ```bash
 bash opencood/tools/scripts/train_w_kd.sh opencood/hypes_yaml/dairv2x/lidar_only/pointpillar_pdd_distillation.yaml opencood/logs/v2x_dgpe_student intermediate
+```
+### Train the Student Model(Noise)
+```bash
+bash opencood/tools/scripts/train_w_kd.sh opencood/hypes_yaml/dairv2x/lidar_only/pointpillar_pdd_distillation.yaml opencood/logs/v2x_dgpe_student_noise intermediate
 ```
 
 ## Testing
@@ -59,6 +63,7 @@ bash opencood/tools/scripts/train_w_kd.sh opencood/hypes_yaml/dairv2x/lidar_only
 Run the following command to test the student model:
 ```bash
 python opencood/tools/inference.py --model_dir opencood/logs/v2x_dgpe_student --fusion_method intermediate
+python opencood/tools/inference_w_noise.py --model_dir opencood/logs/v2x_dgpe_student_noise --fusion_method intermediate
 ```
 
 ## Checkpoints
