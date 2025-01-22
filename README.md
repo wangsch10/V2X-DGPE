@@ -23,7 +23,7 @@ Alternatively, refer to the [OpenCOOD data introduction](https://opencood.readth
 ## Dataset Preparation  
 
 ### DAIR-V2X  
-1. Prepare the **DAIR-V2X-C** dataset following the [official guide](https://github.com/AIR-THU/DAIR-V2X) and then prepare the complemented annotations.  
+1. Prepare the **DAIR-V2X-C** [dataset](https://github.com/AIR-THU/DAIR-V2X) and then prepare the complemented annotations.  
 2. Then process the data:  
     ```bash
     cd ~/V2X-DGPE
@@ -53,7 +53,7 @@ bash opencood/tools/scripts/dist_train.sh 4 opencood/hypes_yaml/dairv2x/lidar_on
 ```bash
 bash opencood/tools/scripts/train_w_kd.sh opencood/hypes_yaml/dairv2x/lidar_only/pointpillar_pdd_distillation.yaml opencood/logs/v2x_dgpe_student intermediate
 ```
-### Train the Student Model(Noise)
+### Train the Student Model (Noise)
 ```bash
 bash opencood/tools/scripts/train_w_kd.sh opencood/hypes_yaml/dairv2x/lidar_only/pointpillar_pdd_distillation.yaml opencood/logs/v2x_dgpe_student_noise intermediate
 ```
